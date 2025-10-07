@@ -16,10 +16,173 @@ if TYPE_CHECKING:
 MIN_COUNT_NOUNS_N_VERBS = 3
 MIN_COUNT_ADVS_N_ADJS = 1
 GRAMATICAL_FUNCTIONS = Literal["NOUN", "VERB", "ADJ", "ADV"]
+LANGUAGES_SUPPORTED = Literal["pt", "en"]
+EXCLUDED_TAGS = ["DET"]  # Determiners are often tagged as adjectives in some models
+PORTUGUESE_EXCLUDED_ADV_ADJ = {
+    "algum",
+    "alguma",
+    "algumas",
+    "alguns",
+    "anterior",
+    "aquela",
+    "aquelas",
+    "aquele",
+    "aqueles",
+    "essa",
+    "essas",
+    "esse",
+    "esses",
+    "esta",
+    "estas",
+    "este",
+    "estes",
+    "meu",
+    "meus",
+    "minha",
+    "minhas",
+    "muita",
+    "muitas",
+    "muito",
+    "muitos",
+    "nenhum",
+    "nenhuma",
+    "nenhumas",
+    "nenhuns",
+    "nossa",
+    "nossas",
+    "nosso",
+    "nossos",
+    "outra",
+    "outras",
+    "outro",
+    "outros",
+    "pouca",
+    "poucas",
+    "pouco",
+    "poucos",
+    "primeiro",
+    "próximo",
+    "quaisquer",
+    "qualquer",
+    "segunda",
+    "seu",
+    "seus",
+    "sua",
+    "suas",
+    "tanta",
+    "tantas",
+    "tanto",
+    "tantos",
+    "terceiro",
+    "teu",
+    "teus",
+    "toda",
+    "todas",
+    "todo",
+    "todos",
+    "tua",
+    "tuas",
+    "último",
+    "vossa",
+    "vossas",
+    "vosso",
+    "vossos",
+}
+ENGLISH_EXCLUDED_ADV_ADJ = {
+    "a",
+    "all",
+    "an",
+    "another",
+    "any",
+    "both",
+    "different",
+    "double",
+    "each",
+    "either",
+    "enough",
+    "every",
+    "few",
+    "first",
+    "her",
+    "his",
+    "its",
+    "last",
+    "least",
+    "less",
+    "little",
+    "many",
+    "more",
+    "most",
+    "much",
+    "my",
+    "neither",
+    "next",
+    "one",
+    "other",
+    "our",
+    "previous",
+    "same",
+    "second",
+    "several",
+    "single",
+    "some",
+    "such",
+    "that",
+    "the",
+    "their",
+    "these",
+    "third",
+    "this",
+    "those",
+    "three",
+    "triple",
+    "two",
+    "your",
+}
+EXCLUDED_MENTE_ADVERBS = {
+    "somente",
+}
+EXCLUDED_LY_ADVERBS = {
+    "absolutely",
+    "actually",
+    "basically",
+    "certainly",
+    "completely",
+    "currently",
+    "definitely",
+    "early",
+    "entirely",
+    "exactly",
+    "finally",
+    "formerly",
+    "fully",
+    "generally",
+    "gradually",
+    "immediately",
+    "initially",
+    "likely",
+    "normally",
+    "only",
+    "originally",
+    "perfectly",
+    "possibly",
+    "previously",
+    "probably",
+    "quickly",
+    "really",
+    "recently",
+    "simply",
+    "slowly",
+    "suddenly",
+    "totally",
+    "typically",
+    "usually",
+}
 
 
 class TextEditorNamespace(argparse.Namespace):
     file: pathlib.Path
+    language: LANGUAGES_SUPPORTED
 
 
 def _format_word_counts_with_examples(
@@ -115,38 +278,35 @@ def _format_repeated_openings(openings: Counter) -> str:
 
 
 def _is_adverb_of_manner(token: Token) -> bool:
-    """Check if an adverb is an adverb of manner (typically ends with -mente in Portuguese)."""
-    return token.pos_ == "ADV" and token.text.lower().endswith("mente")
+    """Check if an adverb is an adverb of manner."""
+    if token.pos_ != "ADV":
+        return False
+
+    # Portuguese: ends with -mente
+    if token.text.lower().endswith("mente"):
+        return token.lemma_.lower() not in EXCLUDED_MENTE_ADVERBS
+
+    # English: typically ends with -ly (but exclude some common non-manner adverbs)
+    if token.text.lower().endswith("ly"):
+        return token.lemma_.lower() not in EXCLUDED_LY_ADVERBS
+
+    return False
 
 
 def _is_adjective_of_quality(token: Token) -> bool:
     """Check if an adjective is a quality adjective (descriptive, not demonstrative/possessive)."""
-    # Filter out demonstrative, possessive, and other non-descriptive adjectives
-    excluded_tags = ["DET"]  # Determiners are often tagged as adjectives in some models
-    excluded_lemmas = {
-        # Demonstrative adjectives
-        "este", "esta", "estes", "estas", "esse", "essa", "esses", "essas", 
-        "aquele", "aquela", "aqueles", "aquelas",
-        # Possessive adjectives
-        "meu", "minha", "meus", "minhas", "teu", "tua", "teus", "tuas",
-        "seu", "sua", "seus", "suas", "nosso", "nossa", "nossos", "nossas",
-        "vosso", "vossa", "vossos", "vossas",
-        # Indefinite adjectives
-        "algum", "alguma", "alguns", "algumas", "nenhum", "nenhuma", "nenhuns", "nenhumas",
-        "todo", "toda", "todos", "todas", "muito", "muita", "muitos", "muitas",
-        "pouco", "pouca", "poucos", "poucas", "tanto", "tanta", "tantos", "tantas",
-        "outro", "outra", "outros", "outras", "qualquer", "quaisquer",
-        # Numerals often tagged as adjectives
-        "primeiro", "segunda", "terceiro", "último", "próximo", "anterior"
-    }
-    
-    return (token.pos_ == "ADJ" and 
-            token.tag_ not in excluded_tags and 
-            token.lemma_.lower() not in excluded_lemmas)
+    if token.pos_ != "ADJ":
+        return False
+
+    excluded_lemmas = PORTUGUESE_EXCLUDED_ADV_ADJ | ENGLISH_EXCLUDED_ADV_ADJ
+
+    return (
+        token.tag_ not in EXCLUDED_TAGS and token.lemma_.lower() not in excluded_lemmas
+    )
 
 
 def _process_manner_adverbs_and_quality_adjectives_with_examples(
-    docs: Iterator[Doc]
+    docs: Iterator[Doc],
 ) -> tuple[Iterator[str], dict[str, list[str]]]:
     word_examples = {}
     lemmas = []
@@ -216,8 +376,8 @@ def _compute_stylistic_metrics(documents: list[Doc]) -> str:
     return result
 
 
-def edit_fiction(file_path: pathlib.Path) -> str:
-    nlp = spacy.load("pt_core_news_sm")
+def edit_fiction(file_path: pathlib.Path, language: LANGUAGES_SUPPORTED = "pt") -> str:
+    nlp = spacy.load("pt_core_news_sm" if language == "pt" else "en_core_web_sm")
     paragraphs = [
         paragraph.replace("\n", "").strip()
         for paragraph in file_path.read_text(encoding="utf-8").split("\n\n")
@@ -259,9 +419,26 @@ def run():
     parser.add_argument(
         "file", type=pathlib.Path, help="The file containing the text to edit"
     )
+    parser.add_argument(
+        "--language", "-l", type=str, default="pt", help="Language of the text"
+    )
     args = parser.parse_args(sys.argv[1:], namespace=TextEditorNamespace())
 
-    print(edit_fiction(args.file))
+    print(edit_fiction(args.file, language=args.language))
+
+
+if __name__ == "__main__":
+    run()
+    parser = argparse.ArgumentParser(description="Edit your fiction")
+    parser.add_argument(
+        "file", type=pathlib.Path, help="The file containing the text to edit"
+    )
+    parser.add_argument(
+        "--language", "-l", type=str, default="pt", help="Language of the text"
+    )
+    args = parser.parse_args(sys.argv[1:], namespace=TextEditorNamespace())
+
+    print(edit_fiction(args.file, language=args.language))
 
 
 if __name__ == "__main__":
