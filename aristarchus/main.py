@@ -1,49 +1,25 @@
 from __future__ import annotations
 from collections.abc import Iterator, Sequence
 import pathlib
+import statistics
 from typing import TYPE_CHECKING, Literal
 import spacy
 import argparse
 import sys
 from collections import Counter
-import statistics
-import textstat
 
 if TYPE_CHECKING:
     from spacy.tokens.doc import Doc
     from spacy.tokens.token import Token
 
 
-MAX_COUNT_NOUNS_N_VERBS = 3
+MIN_COUNT_NOUNS_N_VERBS = 3
+MIN_COUNT_ADVS_N_ADJS = 1
 GRAMATICAL_FUNCTIONS = Literal["NOUN", "VERB", "ADJ", "ADV"]
 
 
 class TextEditorNamespace(argparse.Namespace):
     file: pathlib.Path
-
-
-def _process_tokens_for_doc_n_gramatical_functions(
-    doc: Doc, gram_funcs: Sequence[GRAMATICAL_FUNCTIONS]
-) -> Iterator[str]:
-    for token in doc:
-        if token.pos_ in gram_funcs:
-            yield token.lemma_
-
-
-def _process_tokens_for_docs_n_gramatical_functions(
-    docs: Iterator[Doc], gram_funcs: Sequence[GRAMATICAL_FUNCTIONS]
-) -> Iterator[str]:
-    for doc in docs:
-        yield from _process_tokens_for_doc_n_gramatical_functions(doc, gram_funcs)
-
-
-def _format_word_counts(title: str, counter: Counter, min_count: int = 0) -> str:
-    result = f"{title}:\n"
-    for word, count in counter.items():
-        if count > min_count:
-            result += f"  {word}: {count}\n"
-    result += "\n"
-    return result
 
 
 def _format_word_counts_with_examples(
@@ -128,44 +104,6 @@ def _analyze_sentences(
     )
 
 
-def _compute_readability_metrics(full_text: str) -> str:
-    """Compute readability indices with ideal ranges."""
-    result = "Readability Indices (ideal ranges in parentheses):\n"
-    try:
-        readability_metrics = {
-            "Flesch Reading Ease": (
-                textstat.flesch_reading_ease(full_text),
-                "60-80 (easy to read fiction)",
-            ),
-            "Flesch-Kincaid Grade": (
-                textstat.flesch_kincaid_grade(full_text),
-                "6-10 (typical fiction range)",
-            ),
-            "Gunning Fog Index": (
-                textstat.gunning_fog(full_text),
-                "< 12 (plain, fluent prose)",
-            ),
-            "SMOG Index": (textstat.smog_index(full_text), "< 13 (good readability)"),
-            "Coleman-Liau Index": (
-                textstat.coleman_liau_index(full_text),
-                "7-10 (smooth general prose)",
-            ),
-            "Automated Readability Index": (
-                textstat.automated_readability_index(full_text),
-                "6-10 (typical for novels)",
-            ),
-        }
-
-        for name, (value, ideal) in readability_metrics.items():
-            result += f"  {name}: {value:.2f} — ideal {ideal}\n"
-
-    except Exception as e:
-        result += f"  [!] Could not compute readability metrics: {e}\n"
-
-    result += "\n"
-    return result
-
-
 def _format_repeated_openings(openings: Counter) -> str:
     """Format repeated sentence openings."""
     result = "  Repeated sentence openings:\n"
@@ -182,7 +120,6 @@ def _compute_stylistic_metrics(documents: list[Doc]) -> str:
         _analyze_sentences(documents)
     )
 
-    full_text = "\n".join([doc.text for doc in documents])
     avg_len = statistics.mean(sentence_lengths) if sentence_lengths else 0
     var_len = statistics.pstdev(sentence_lengths) if len(sentence_lengths) > 1 else 0
     lexical_div = len(unique_lemmas) / total_tokens if total_tokens else 0
@@ -199,7 +136,6 @@ def _compute_stylistic_metrics(documents: list[Doc]) -> str:
         result += "\n"
 
     result += _format_repeated_openings(openings)
-    result += _compute_readability_metrics(full_text)
 
     return result
 
@@ -227,19 +163,20 @@ def edit_fiction(file_path: pathlib.Path) -> str:
     )
     adverbs_n_adjectives_counter = Counter(adverbs_n_adjectives_lemmas)
 
-    result = _format_word_counts_with_examples(
+    result = _compute_stylistic_metrics(documents)
+    result += _format_word_counts_with_examples(
         "Nouns and Verbs",
         nouns_n_verbs_counter,
         nouns_n_verbs_examples,
-        MAX_COUNT_NOUNS_N_VERBS,
+        MIN_COUNT_NOUNS_N_VERBS,
     )
     result += _format_word_counts_with_examples(
         "Adverbs and Adjectives",
         adverbs_n_adjectives_counter,
         adverbs_n_adjectives_examples,
+        MIN_COUNT_ADVS_N_ADJS,
     )
 
-    result += _compute_stylistic_metrics(documents)
     return result
 
 
