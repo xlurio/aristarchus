@@ -151,7 +151,7 @@ def _compute_stylistic_metrics(documents: list[Doc]) -> str:
     result += f"  Avg. sentence length: {avg_len:.2f} (10-25) tokens\n"
     result += f"  Sentence length variation: {var_len:.2f} (approximate the avg)\n"
     result += f"  Lexical diversity: {lexical_div:.3f} (0.4-0.6)\n"
-    result += f"  Nouns+Verbs to Adjectives+Adverbs ratio: {nv_to_aa_ratio:.2f} (2-4 for clear prose)\n\n"
+    result += f"  Nouns+Verbs to Adjectives+Adverbs ratio: {nv_to_aa_ratio:.2f} (>2 for clear prose)\n\n"
 
     if passive_sentence_texts:
         result += "Passive voice sentences:\n"
