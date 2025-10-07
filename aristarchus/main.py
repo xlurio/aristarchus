@@ -429,17 +429,3 @@ def run():
 
 if __name__ == "__main__":
     run()
-    parser = argparse.ArgumentParser(description="Edit your fiction")
-    parser.add_argument(
-        "file", type=pathlib.Path, help="The file containing the text to edit"
-    )
-    parser.add_argument(
-        "--language", "-l", type=str, default="pt", help="Language of the text"
-    )
-    args = parser.parse_args(sys.argv[1:], namespace=TextEditorNamespace())
-
-    print(edit_fiction(args.file, language=args.language))
-
-
-if __name__ == "__main__":
-    run()
