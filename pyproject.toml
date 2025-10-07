@@ -1,0 +1,25 @@
+[project]
+name = "aristarchus"
+version = "0.1.0"
+description = "Automatic editor to agilize checking a few rules."
+authors = [
+    {name = "Lucas Calegario",email = "lucas.c.calegario@outlook.com"}
+]
+license = {text = "GNU General Public License v3.0"}
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "spacy (~=3.8.7)"
+]
+
+[dependency-groups]
+dev = [
+    "ruff (>=0.13.3,<0.14.0)"
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+aristarchus = 'aristarchus.main:run'
