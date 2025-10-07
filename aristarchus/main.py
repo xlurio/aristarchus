@@ -114,8 +114,59 @@ def _format_repeated_openings(openings: Counter) -> str:
     return result
 
 
+def _is_adverb_of_manner(token: Token) -> bool:
+    """Check if an adverb is an adverb of manner (typically ends with -mente in Portuguese)."""
+    return token.pos_ == "ADV" and token.text.lower().endswith("mente")
+
+
+def _is_adjective_of_quality(token: Token) -> bool:
+    """Check if an adjective is a quality adjective (descriptive, not demonstrative/possessive)."""
+    # Filter out demonstrative, possessive, and other non-descriptive adjectives
+    excluded_tags = ["DET"]  # Determiners are often tagged as adjectives in some models
+    excluded_lemmas = {
+        # Demonstrative adjectives
+        "este", "esta", "estes", "estas", "esse", "essa", "esses", "essas", 
+        "aquele", "aquela", "aqueles", "aquelas",
+        # Possessive adjectives
+        "meu", "minha", "meus", "minhas", "teu", "tua", "teus", "tuas",
+        "seu", "sua", "seus", "suas", "nosso", "nossa", "nossos", "nossas",
+        "vosso", "vossa", "vossos", "vossas",
+        # Indefinite adjectives
+        "algum", "alguma", "alguns", "algumas", "nenhum", "nenhuma", "nenhuns", "nenhumas",
+        "todo", "toda", "todos", "todas", "muito", "muita", "muitos", "muitas",
+        "pouco", "pouca", "poucos", "poucas", "tanto", "tanta", "tantos", "tantas",
+        "outro", "outra", "outros", "outras", "qualquer", "quaisquer",
+        # Numerals often tagged as adjectives
+        "primeiro", "segunda", "terceiro", "último", "próximo", "anterior"
+    }
+    
+    return (token.pos_ == "ADJ" and 
+            token.tag_ not in excluded_tags and 
+            token.lemma_.lower() not in excluded_lemmas)
+
+
+def _process_manner_adverbs_and_quality_adjectives_with_examples(
+    docs: Iterator[Doc]
+) -> tuple[Iterator[str], dict[str, list[str]]]:
+    word_examples = {}
+    lemmas = []
+
+    for doc in docs:
+        for token in doc:
+            if _is_adverb_of_manner(token) or _is_adjective_of_quality(token):
+                lemma = token.lemma_
+                original_word = token.text.lower()
+
+                if lemma not in word_examples:
+                    word_examples[lemma] = []
+                word_examples[lemma].append(original_word)
+                lemmas.append(lemma)
+
+    return iter(lemmas), word_examples
+
+
 def _analyze_word_classes(documents: list[Doc]) -> tuple[int, int]:
-    """Count nouns+verbs vs adjectives+adverbs."""
+    """Count nouns+verbs vs manner adverbs+quality adjectives."""
     nouns_verbs_count = 0
     adjs_advs_count = 0
 
@@ -123,7 +174,7 @@ def _analyze_word_classes(documents: list[Doc]) -> tuple[int, int]:
         for token in doc:
             if token.pos_ in ["NOUN", "VERB"]:
                 nouns_verbs_count += 1
-            elif token.pos_ in ["ADJ", "ADV"]:
+            elif _is_adverb_of_manner(token) or _is_adjective_of_quality(token):
                 adjs_advs_count += 1
 
     return nouns_verbs_count, adjs_advs_count
@@ -139,6 +190,7 @@ def _compute_stylistic_metrics(documents: list[Doc]) -> str:
 
     avg_len = statistics.mean(sentence_lengths) if sentence_lengths else 0
     var_len = statistics.pstdev(sentence_lengths) if len(sentence_lengths) > 1 else 0
+    var_len_percentage = (var_len / avg_len * 100) if avg_len else 0
     lexical_div = len(unique_lemmas) / total_tokens if total_tokens else 0
 
     # Calculate nouns+verbs to adjectives+adverbs ratio
@@ -149,7 +201,7 @@ def _compute_stylistic_metrics(documents: list[Doc]) -> str:
 
     result = "Stylistic Metrics:\n"
     result += f"  Avg. sentence length: {avg_len:.2f} (10-25) tokens\n"
-    result += f"  Sentence length variation: {var_len:.2f} (approximate the avg)\n"
+    result += f"  Sentence length variation: {var_len:.2f} ({var_len_percentage:.2f}%) (approximate the avg)\n"
     result += f"  Lexical diversity: {lexical_div:.3f} (0.4-0.6)\n"
     result += f"  Nouns+Verbs to Adjectives+Adverbs ratio: {nv_to_aa_ratio:.2f} (>2 for clear prose)\n\n"
 
@@ -181,9 +233,7 @@ def edit_fiction(file_path: pathlib.Path) -> str:
     nouns_n_verbs_counter = Counter(nouns_n_verbs_lemmas)
 
     adverbs_n_adjectives_lemmas, adverbs_n_adjectives_examples = (
-        _process_tokens_for_docs_n_gramatical_functions_with_examples(
-            iter(documents), ["ADV", "ADJ"]
-        )
+        _process_manner_adverbs_and_quality_adjectives_with_examples(iter(documents))
     )
     adverbs_n_adjectives_counter = Counter(adverbs_n_adjectives_lemmas)
 
@@ -195,7 +245,7 @@ def edit_fiction(file_path: pathlib.Path) -> str:
         MIN_COUNT_NOUNS_N_VERBS,
     )
     result += _format_word_counts_with_examples(
-        "Adverbs and Adjectives",
+        "Manner Adverbs and Quality Adjectives",
         adverbs_n_adjectives_counter,
         adverbs_n_adjectives_examples,
         MIN_COUNT_ADVS_N_ADJS,
