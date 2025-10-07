@@ -114,20 +114,44 @@ def _format_repeated_openings(openings: Counter) -> str:
     return result
 
 
+def _analyze_word_classes(documents: list[Doc]) -> tuple[int, int]:
+    """Count nouns+verbs vs adjectives+adverbs."""
+    nouns_verbs_count = 0
+    adjs_advs_count = 0
+
+    for doc in documents:
+        for token in doc:
+            if token.pos_ in ["NOUN", "VERB"]:
+                nouns_verbs_count += 1
+            elif token.pos_ in ["ADJ", "ADV"]:
+                adjs_advs_count += 1
+
+    return nouns_verbs_count, adjs_advs_count
+
+
 def _compute_stylistic_metrics(documents: list[Doc]) -> str:
     """Compute sentence-level stylistic statistics and readability metrics."""
     sentence_lengths, openings, total_tokens, unique_lemmas, passive_sentence_texts = (
         _analyze_sentences(documents)
     )
 
+    nouns_verbs_count, adjs_advs_count = _analyze_word_classes(documents)
+
     avg_len = statistics.mean(sentence_lengths) if sentence_lengths else 0
     var_len = statistics.pstdev(sentence_lengths) if len(sentence_lengths) > 1 else 0
     lexical_div = len(unique_lemmas) / total_tokens if total_tokens else 0
 
+    # Calculate nouns+verbs to adjectives+adverbs ratio
+    if adjs_advs_count > 0:
+        nv_to_aa_ratio = nouns_verbs_count / adjs_advs_count
+    else:
+        nv_to_aa_ratio = float("inf") if nouns_verbs_count > 0 else 0
+
     result = "Stylistic Metrics:\n"
     result += f"  Avg. sentence length: {avg_len:.2f} (10-25) tokens\n"
     result += f"  Sentence length variation: {var_len:.2f} (approximate the avg)\n"
-    result += f"  Lexical diversity: {lexical_div:.3f} (0.4-0.6)\n\n"
+    result += f"  Lexical diversity: {lexical_div:.3f} (0.4-0.6)\n"
+    result += f"  Nouns+Verbs to Adjectives+Adverbs ratio: {nv_to_aa_ratio:.2f} (2-4 for clear prose)\n\n"
 
     if passive_sentence_texts:
         result += "Passive voice sentences:\n"
