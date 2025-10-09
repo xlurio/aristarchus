@@ -52,13 +52,3 @@ def analyze_sentences(
         unique_lemmas,
         passive_sentence_texts,
     )
-
-
-def format_repeated_openings(openings: Counter) -> str:
-    """Format repeated sentence openings."""
-    result = "  Repeated sentence openings:\n"
-    for opening, count in openings.most_common():
-        if count > 2:
-            result += f"    {opening}: {count}\n"
-    result += "\n"
-    return result
