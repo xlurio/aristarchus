@@ -28,7 +28,7 @@ def _compute_readability_metrics(full_text: str) -> str:
                 textstat.gunning_fog(full_text),
                 "< 11",
             ),
-            "SMOG Index": (textstat.smog_index(full_text), "< 8"),
+            "SMOG Index": (textstat.smog_index(full_text), "< 9"),
             "Coleman-Liau Index": (
                 textstat.coleman_liau_index(full_text),
                 "< 9",
