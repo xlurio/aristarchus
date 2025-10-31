@@ -18,24 +18,24 @@ def _compute_readability_metrics(full_text: str) -> str:
         readability_metrics = {
             "Flesch Reading Ease": (
                 textstat.flesch_reading_ease(full_text),
-                "80-90 (easy to read fiction)",
+                "> 60",
             ),
             "Flesch-Kincaid Grade": (
                 textstat.flesch_kincaid_grade(full_text),
-                "4-5 (typical fiction range)",
+                "< 9",
             ),
             "Gunning Fog Index": (
                 textstat.gunning_fog(full_text),
-                "< 7 (plain, fluent prose)",
+                "< 11",
             ),
-            "SMOG Index": (textstat.smog_index(full_text), "< 8 (good readability)"),
+            "SMOG Index": (textstat.smog_index(full_text), "< 8"),
             "Coleman-Liau Index": (
                 textstat.coleman_liau_index(full_text),
-                "5-7 (smooth general prose)",
+                "< 9",
             ),
             "Automated Readability Index": (
                 textstat.automated_readability_index(full_text),
-                "4-6",
+                "< 10",
             ),
         }
 
